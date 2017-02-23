@@ -56,16 +56,16 @@ def nwAlgo(b, a):
 	while not done:
 		print("i and j:" + str(i) + " " + str(j))
 		currentVal = costMatrix[i][j]
-		if currentVal is costMatrix[i-1][j-1] + subCost(a[i],b[j]):
+		if currentVal == costMatrix[i-1][j-1] + subCost(a[i],b[j]):
 			a_match+=a[i]
 			b_match+=b[j]
 			i-=1
 			j-=1
-		elif currentVal is costMatrix[i-1][j] + insertionCost:
+		elif currentVal == costMatrix[i-1][j] + insertionCost:
 			a_match+=a[i]
 			b_match+=blank
 			i-=1
-		elif currentVal is costMatrix[i][j-1] + insertionCost:
+		elif currentVal == costMatrix[i][j-1] + insertionCost:
 			a_match+=blank
 			b_match+=b[j]
 			j-=1
@@ -117,28 +117,30 @@ def swAlgo(b, a):
 	while not done:
 		print("i and j:" + str(i) + " " + str(j))
 		currentVal = costMatrix[i][j]
-		if currentVal is costMatrix[i-1][j-1] + subCost(a[i],b[j]):
+		if currentVal == costMatrix[i-1][j-1] + subCost(a[i],b[j]):
 			a_match+=a[i]
 			b_match+=b[j]
 			i-=1
 			j-=1
-		elif currentVal is costMatrix[i-1][j] + insertionCost:
+		elif currentVal == costMatrix[i-1][j] + insertionCost:
 			a_match+=a[i]
 			b_match+=blank
 			i-=1
-		elif currentVal is costMatrix[i][j-1] + insertionCost:
+		elif currentVal == costMatrix[i][j-1] + insertionCost:
 			a_match+=blank
 			b_match+=b[j]
 			j-=1
 		else:
 			print("Mistakes were made - check your code!")
+			return costMatrix
 		if not costMatrix[i][j]:
 			done = True
 	print("a: " + str(b_match[::-1]))
 	print("b: " + str(a_match[::-1]))
 	return costMatrix
 
-matrix = swAlgo("HEAGAWGHEE", "PAWHEAE")
+matrix = swAlgo("MQNSHSGVNQLGGVFVNGRPLPDSTRQKIVELAHSGARPCDISRILQVSNGCVSKILGRY",
+ "TDDECHSGVNQLGGVFVGGRPLPDSTRQKIVELAHSGARPCDISRI")
 
 for row in matrix:
 	print(row)
