@@ -22,3 +22,11 @@ Mirror below for convience:
   * Download the Pax6 protein for the moust by going to <http://www.uniprot.org/uniprot/P63015> choose the "Format" tab and choose the FASTA (canonical) format
   * Do the sacme for the eyeless protein for the fruit fly <http://www.uniprot.org/uniprot/O96791>
   * Perform a BLAST sequence comparison using the web service at <https://blast.ncbi.nlm.nih.gov>
+  
+4. Program the following HMM for detecting CG rich regions  
+![Hidden Markov Model]
+(http://users.ecs.soton.ac.uk/ak9g14/COMP3212/hmmCG.png)
+
+5. Write a viterbi algorithm for finding the most likely CG regions and find a way of drawing this
+
+6. Run this on the genome for the [phase lambda](https://www.ncbi.nlm.nih.gov/nuccore/215104?report=fasta) or [here](https://secure.ecs.soton.ac.uk/notes/comp3212/tutorial/phaseLambda.fasta)
