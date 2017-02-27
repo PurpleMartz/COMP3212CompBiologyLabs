@@ -138,9 +138,57 @@ def swAlgo(b, a):
 	print("a: " + str(b_match[::-1]))
 	print("b: " + str(a_match[::-1]))
 	return costMatrix
-
-matrix = swAlgo("MQNSHSGVNQLGGVFVNGRPLPDSTRQKIVELAHSGARPCDISRILQVSNGCVSKILGRY",
- "TDDECHSGVNQLGGVFVGGRPLPDSTRQKIVELAHSGARPCDISRI")
-
-for row in matrix:
-	print(row)
+	
+class HiddenMarkovModel(object):
+	"""A Hidden Markov Model
+	
+	Attributes
+		outputs: A list of possible outputs of the HMM
+		states: A list of State objects that have each state's information
+	"""
+	class State(object):
+		""" A State in a Hidden Markov Model
+		
+		Attributes:
+			transitions: A list of probabilities that show which will be the next state
+			outputs: A list of probabilites the show the likelihood of an output
+		"""
+		def __init__(self, outputs, transitions):
+			tolerance = 0.01
+			self.transitions = transitions
+			self.outputs = outputs
+			count = 0
+			for output in outputs:
+				count += output
+			if 1+tolerance < count or count < 1-tolerance:
+				#print a warning if probabilities are too far off 1
+				print("WARNING: Sum of output probabilities is " + str(count))
+				
+		def __str__(self):
+			return ("Outputs: " + str(self.outputs) + "\n" 
+			     + "Transitions: " + str(self.transitions))
+	
+	def __init__(self, outputs, states):
+		self.outputs = outputs
+		self.states = states
+		for i in range(len(states)):
+			state = states[i]
+			if len(outputs) != len(state.outputs):
+				print("Error: State " + str(i) + " has " + str(len(state.outputs))
+				      + " outputs, not " + str(len(outputs)) + " outputs.")
+			if len(states) != len(state.transitions):
+				print("Error: State " + str(i) + " has " + str(len(state.transitions))
+				      + " transitions, not " + str(len(states)) + " transitions.")
+	
+	def __str__(self):
+		string = "Outputs: " + str(self.outputs) + "\n"
+		for state in self.states:
+			string+= "States: " + str(state) + "\n"
+		return string
+		       
+hmm = HiddenMarkovModel((1, 2, 3, 4, 5, 6), 
+                        (HiddenMarkovModel.State((1/6, 1/6, 1/6, 1/6, 1/6, 1/6),
+                                                 (9/10, 1/10)),
+                         HiddenMarkovModel.State((1/10, 1/10, 1/10, 1/10, 1/10, 1/2),
+                                                 (1/10, 9/10))))
+print(hmm)         
