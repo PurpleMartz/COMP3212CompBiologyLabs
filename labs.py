@@ -1,3 +1,4 @@
+from __future__ import division
 def loadBlosum50():
 	"""Loads the BLOSUM50 Matrix from a text file
 	"""
@@ -193,6 +194,9 @@ class HiddenMarkovModel(object):
 		
 	def viterbi(self, sequence):
 		""" Finds the most likely sequence of states in the given sequence """
+		
+		sequence = " " + sequence #adds a leading space for initial state
+		
 		#forwards algoirithm
 		initialState = 0
 		probabilities = []
@@ -200,36 +204,47 @@ class HiddenMarkovModel(object):
 		
 		for i in range(len(self.states)):
 			pointer.append([None]) #first pointer points to nothing
-			if i == initialState:
+			if i == initialState: 
+				#sets the initialState to have probability of 100%
 				probabilities.append([1])
 			else:
+				#all other states start at 0%
 				probabilities.append([0])	
 
 		for t in range(1, len(sequence)):
+			#t starts at 1 since first prob is predefined
 			for i in range(len(self.states)):
 				vals = []
 				for j in range(len(self.states)):
 					vals.append(probabilities[j][t-1] * self.transitionProb(i, j))
 				probabilities[i].append(self.emissionProb(i, sequence[t]) * max(vals))
+				#pointer to which state was the previous state
 				pointer[i].append(vals.index(max(vals)))
 		
 		#backwards algorithm
 		finalValues = []
 		for probs in probabilities:
 			finalValues.append(probs[len(sequence)-1])
+		#finds the state which ends with the highest probability
 		state = finalValues.index(max(finalValues))
 		
 		stateSequence = ""
 		for t in range(len(sequence)-1,-1, -1):
+			#go in reverse order ie for(t = size-1; i != -1; i--)
 			stateSequence += str(state)
 			state = pointer[state][t]
 			
 		stateSequence = stateSequence[::-1]
 		printSequence = ""
 		
-		for t in range(len(stateSequence)):
-			printSequence+=('\033[4'+stateSequence[t]+'m'+sequence[t])
-		printSequence+='\033[0m' #resets colors
+		#the following loop adds colors to the sequence showing the state
+		for t in range(1,len(stateSequence)):
+			#t starts at 1 since first char is a space
+			if t <= 1 or stateSequence[t-1] != stateSequence[t]:
+				# if state changed, changes background color of text
+				printSequence+= '\033[4'+stateSequence[t]+';97m'
+			printSequence += sequence[t]
+		printSequence+='\033[39;49m' #resets colors
 		print("Sequence: " + printSequence)
 
 blosumCosts = loadBlosum50()
@@ -255,6 +270,7 @@ dishonestCasino.viterbi("5453525456666664365666635661416626365666621166211311155
 phaseLamda = open("phaseLambda.fasta", "r").readlines()[1:] #load all but the first line
 phaseLamda = "".join(phaseLamda)
 phaseLamda = [x.strip() for x in phaseLamda] #removes \n characters
+phaseLamda = "".join(phaseLamda)
 
 cgRich = HiddenMarkovModel(("ATCG"),
                      (HiddenMarkovModel.State((0.2698, 0.3237, 0.2080, 0.1985),
