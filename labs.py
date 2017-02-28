@@ -9,135 +9,105 @@ def loadBlosum50():
 		lineArray = [int(x) for x in lineArray if x]
 		blosumCosts.append(lineArray)
 	return blosumCosts
-
-blosumCosts = loadBlosum50()
-blosumAxis = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 
+              
+class AminoAcidMutation(object):
+	def __init__(self, blosumCostMatrix):
+		self.blosumAxis = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 
               'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-def subCost(a, b):
-	a = a.upper()
-	b = b.upper()
-	if a in blosumAxis and b in blosumAxis:
-		return blosumCosts[blosumAxis.index(a)][blosumAxis.index(b)]
-	else:
-		return -123456789 - 42
-
-insertionCost = -8
-def nwAlgo(b, a):
-	b = " " + b
-	a = " " + a
-	costMatrix = []
-	
-	for i in range(len(a)):
-		costMatrix.append([])
-		#forwards algorithm
-		for j in range(len(b)):
-			vals = []
-			if i > 0 and j > 0:
-				vals.append(costMatrix[i-1][j-1] + subCost(a[i],b[j]))
-			
-			if i > 0:
-				vals.append(costMatrix[i-1][j] + insertionCost)
-			
-			if j > 0:
-				vals.append(costMatrix[i][j-1] + insertionCost)
-			
-			if not vals:
-				vals.append(0)
-			
-			costMatrix[i].append(max(vals))
-	
-	#backwards algorithm
-	done = False
-	i = len(a)-1
-	j = len(b)-1
-	a_match = ""
-	b_match = ""
-	blank = "-"
-	while not done:
-		print("i and j:" + str(i) + " " + str(j))
-		currentVal = costMatrix[i][j]
-		if currentVal == costMatrix[i-1][j-1] + subCost(a[i],b[j]):
-			a_match+=a[i]
-			b_match+=b[j]
-			i-=1
-			j-=1
-		elif currentVal == costMatrix[i-1][j] + insertionCost:
-			a_match+=a[i]
-			b_match+=blank
-			i-=1
-		elif currentVal == costMatrix[i][j-1] + insertionCost:
-			a_match+=blank
-			b_match+=b[j]
-			j-=1
+		self.blosumCosts = blosumCostMatrix
+		self.insertionCost = -8
+		
+	def subCost(self, a, b):
+		a = a.upper()
+		b = b.upper()
+		if a in self.blosumAxis and b in self.blosumAxis:
+			return self.blosumCosts[self.blosumAxis.index(a)][self.blosumAxis.index(b)]
 		else:
-			print("Mistakes were made - check your code!")
-		if not i and not j:
-			done = True
-	print("a: " + str(b_match[::-1]))
-	print("b: " + str(a_match[::-1]))
-	return costMatrix
+			return -123456789 - 42 #some tiny number in case we match a "-"
+			
+	def __forwardsAlgorithm(self, isSW, a, b):
+		costMatrix = []
+	
+		for i in range(len(a)):
+			costMatrix.append([])
+			for j in range(len(b)):
+				vals = []
+				if i > 0 and j > 0:
+					vals.append(costMatrix[i-1][j-1] + self.subCost(a[i],b[j]))
+			
+				if i > 0:
+					vals.append(costMatrix[i-1][j] + self.insertionCost)
+			
+				if j > 0:
+					vals.append(costMatrix[i][j-1] + self.insertionCost)
+			
+				if isSW or not vals:
+					vals.append(0)
+			
+				costMatrix[i].append(max(vals))
+				
+		return costMatrix
+		
+	def __backwardsAlgorithm(self, isSW, a, b, costMatrix):
+		done = False
+		a_match = ""
+		b_match = ""
+		blank = "-"
+		i = j = 0
+		
+		if isSW:
+			max_index_j = []
+			max_vals = []
+			for row in costMatrix:
+				max_index_j.append(row.index(max(row)))
+				max_vals.append(max(row))
+	
+			i = max_vals.index(max(max_vals))
+			j = max_index_j[i]		
+		else:	
+			i = len(a)-1
+			j = len(b)-1
+		
+		print("Probability of this match is " + str(costMatrix[i][j]))
+		
+		while not done:
+			currentVal = costMatrix[i][j]
+			if currentVal == costMatrix[i-1][j-1] + self.subCost(a[i],b[j]):
+				a_match+=a[i]
+				b_match+=b[j]
+				i-=1
+				j-=1
+			elif currentVal == costMatrix[i-1][j] + self.insertionCost:
+				a_match+=a[i]
+				b_match+=blank
+				i-=1
+			elif currentVal == costMatrix[i][j-1] + self.insertionCost:
+				a_match+=blank
+				b_match+=b[j]
+				j-=1
+			else:
+				print("Mistakes were made - check your code!")
+			if i==0 and j==0 or (isSW and costMatrix[i][j]==0):
+				done = True
+		print("a: " + str(b_match[::-1]))
+		print("b: " + str(a_match[::-1]))
+		
+	def __matchAlgo(self, isSW, a, b):
+		print("Matching " + b + " with " + a)
+		b = " " + b
+		a = " " + a
+		
+		costMatrix = self.__forwardsAlgorithm(isSW, a, b)	
+		self.__backwardsAlgorithm(isSW, a, b, costMatrix)
 
-def swAlgo(b, a):
-	b = " " + b
-	a = " " + a
-	costMatrix = []
-	
-	for i in range(len(a)):
-		costMatrix.append([])
-		#forwards algorithm
-		for j in range(len(b)):
-			vals = []
-			if i > 0 and j > 0:
-				vals.append(costMatrix[i-1][j-1] + subCost(a[i],b[j]))
-			
-			if i > 0:
-				vals.append(costMatrix[i-1][j] + insertionCost)
-			
-			if j > 0:
-				vals.append(costMatrix[i][j-1] + insertionCost)
-			
-			vals.append(0)
-			
-			costMatrix[i].append(max(vals))
-	
-	#backwards algorithm
-	done = False
-	max_index_j = []
-	max_vals = []
-	for row in costMatrix:
-		max_index_j.append(row.index(max(row)))
-		max_vals.append(max(row))
-	
-	i = max_vals.index(max(max_vals))
-	j = max_index_j[i]
-	
-	a_match = ""
-	b_match = ""
-	blank = "-"
-	while not done:
-		print("i and j:" + str(i) + " " + str(j))
-		currentVal = costMatrix[i][j]
-		if currentVal == costMatrix[i-1][j-1] + subCost(a[i],b[j]):
-			a_match+=a[i]
-			b_match+=b[j]
-			i-=1
-			j-=1
-		elif currentVal == costMatrix[i-1][j] + insertionCost:
-			a_match+=a[i]
-			b_match+=blank
-			i-=1
-		elif currentVal == costMatrix[i][j-1] + insertionCost:
-			a_match+=blank
-			b_match+=b[j]
-			j-=1
-		else:
-			print("Mistakes were made - check your code!")
-			return costMatrix
-		if not costMatrix[i][j]:
-			done = True
-	print("a: " + str(b_match[::-1]))
-	print("b: " + str(a_match[::-1]))
-	return costMatrix
+	def needlemanWunsch(self, b, a):
+		isSW = False
+		self.__matchAlgo(isSW, a, b)
+
+	def smithWaterman(self,b, a):
+		isSW = True
+		self.__matchAlgo(isSW, a, b)
+		
 	
 class HiddenMarkovModel(object):
 	"""A Hidden Markov Model
@@ -223,10 +193,23 @@ class HiddenMarkovModel(object):
 			state = pointer[state][t]
 		print("Sequence: " + sequence)
 		print("  States: " + stateSequence[::-1])
-		       
-hmm = HiddenMarkovModel(("123456"), 
+
+blosumCosts = loadBlosum50()
+match = AminoAcidMutation(blosumCosts)
+print("Needleman-Wunsch: ")
+match.needlemanWunsch("HEAGAWGHEE", "PAWHEAE")
+match.needlemanWunsch("PQPTTPVSSFTSGSMLGRTDTALTNTYSAL",
+                      "PSPTMEAVEASTASHPHSTSSYFATTYYHL")
+print("")
+print("Smith-Waterman: ")
+match.smithWaterman("HEAGAWGHEE", "PAWHEAE")
+match.smithWaterman("MQNSHSGVNQLGGVFVNGRPLPDSTRQKIVELAHSGARPCDISRILQVSNGCVSKILGRY",
+                    "TDDECHSGVNQLGGVFVGGRPLPDSTRQKIVELAHSGARPCDISRI")
+print("")
+print("Hidden Markov Model")
+dishonestCasino = HiddenMarkovModel(("123456"), 
                         (HiddenMarkovModel.State((1/6, 1/6, 1/6, 1/6, 1/6, 1/6),
                                                  (9/10, 1/10)),
                          HiddenMarkovModel.State((1/10, 1/10, 1/10, 1/10, 1/10, 1/2),
                                                  (1/10, 9/10))))
-hmm.viterbi( "5453525456666664365666635661416626365666621166211311155566351166565663466653642535666662541345464155")        
+dishonestCasino.viterbi("5453525456666664365666635661416626365666621166211311155566351166565663466653642535666662541345464155")
