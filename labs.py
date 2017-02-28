@@ -185,10 +185,48 @@ class HiddenMarkovModel(object):
 		for state in self.states:
 			string+= "States: " + str(state) + "\n"
 		return string
+		
+	def transitionProb(self, fromState, toState):
+		return self.states[fromState].transitions[toState]
+		
+	def emissionProb(self, state, emission):
+		return self.states[state].outputs[self.outputs.index(emission)]
+		
+	def viterbi(self, sequence):
+		#forwards algoirithm
+		initialState = 0
+		probabilities = []
+		pointer = []
+		for i in range(len(self.states)):
+			pointer.append([None]) #first pointer points to nothing
+			if i == initialState:
+				probabilities.append([1])
+			else:
+				probabilities.append([0])	
+
+		for t in range(1, len(sequence)):
+			for i in range(len(self.states)):
+				vals = []
+				for j in range(len(self.states)):
+					vals.append(probabilities[j][t-1] * self.transitionProb(i, j))
+				probabilities[i].append(self.emissionProb(i, sequence[t]) * max(vals))
+				pointer[i].append(vals.index(max(vals)))
+		
+		#backwards algorithm
+		finalValues = []
+		for probs in probabilities:
+			finalValues.append(probs[len(sequence)-1])
+		state = finalValues.index(max(finalValues))
+		stateSequence = ""
+		for t in range(len(sequence)-1,-1, -1):
+			stateSequence += str(state)
+			state = pointer[state][t]
+		print("Sequence: " + sequence)
+		print("  States: " + stateSequence[::-1])
 		       
-hmm = HiddenMarkovModel((1, 2, 3, 4, 5, 6), 
+hmm = HiddenMarkovModel(("123456"), 
                         (HiddenMarkovModel.State((1/6, 1/6, 1/6, 1/6, 1/6, 1/6),
                                                  (9/10, 1/10)),
                          HiddenMarkovModel.State((1/10, 1/10, 1/10, 1/10, 1/10, 1/2),
                                                  (1/10, 9/10))))
-print(hmm)         
+hmm.viterbi( "5453525456666664365666635661416626365666621166211311155566351166565663466653642535666662541345464155")        
