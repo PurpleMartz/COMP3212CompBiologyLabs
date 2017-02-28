@@ -231,7 +231,6 @@ class HiddenMarkovModel(object):
 			printSequence+=('\033[4'+stateSequence[t]+'m'+sequence[t])
 		printSequence+='\033[0m' #resets colors
 		print("Sequence: " + printSequence)
-		print("  States: " + stateSequence)
 
 blosumCosts = loadBlosum50()
 match = AminoAcidMutation(blosumCosts)
@@ -252,3 +251,14 @@ dishonestCasino = HiddenMarkovModel(("123456"),
                          HiddenMarkovModel.State((1/10, 1/10, 1/10, 1/10, 1/10, 1/2),
                                                  (1/10, 9/10))))
 dishonestCasino.viterbi("5453525456666664365666635661416626365666621166211311155566351166565663466653642535666662541345464155")
+
+phaseLamda = open("phaseLambda.fasta", "r").readlines()[1:] #load all but the first line
+phaseLamda = "".join(phaseLamda)
+phaseLamda = [x.strip() for x in phaseLamda] #removes \n characters
+
+cgRich = HiddenMarkovModel(("ATCG"),
+                     (HiddenMarkovModel.State((0.2698, 0.3237, 0.2080, 0.1985),
+                                              (0.9998, 0.0002)),
+                     (HiddenMarkovModel.State((0.2459, 0.2079, 0.2478, 0.2984),
+                                              (0.0003, 0.9997)))))
+cgRich.viterbi(phaseLamda)
