@@ -1,7 +1,9 @@
 def loadBlosum50():
-	with open('blosum50.txt') as f:
-		content = f.readlines()
-	content = [x.strip() for x in content]
+	"""Loads the BLOSUM50 Matrix from a text file
+	"""
+	with open('blosum50.txt') as file:
+		content = file.readlines()
+	content = [x.strip() for x in content] #removes \n character
 	
 	blosumCosts = []
 	for x in content:
@@ -11,21 +13,38 @@ def loadBlosum50():
 	return blosumCosts
               
 class AminoAcidMutation(object):
+	"""Class used for comparing whether protein sequences are from the same species
+	"""
 	def __init__(self, blosumCostMatrix):
-		self.blosumAxis = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 
+		"""Initializes the class
+		Keyword arguments:
+		blosumCostMatrix -- the blosum cost matrix to use
+		"""
+		self.__blosumAxis = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 
               'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-		self.blosumCosts = blosumCostMatrix
-		self.insertionCost = -8
+		self.__blosumCosts = blosumCostMatrix
+		self.__insertionCost = -8
 		
-	def subCost(self, a, b):
+	def __subcost(self, a, b):
+		""" Returns the cost between the chars, a and b, using the
+		    blosumCostMatrix
+		"""
 		a = a.upper()
 		b = b.upper()
-		if a in self.blosumAxis and b in self.blosumAxis:
-			return self.blosumCosts[self.blosumAxis.index(a)][self.blosumAxis.index(b)]
+		if a in self.__blosumAxis and b in self.__blosumAxis:
+			return self.__blosumCosts[self.__blosumAxis.index(a)][self.__blosumAxis.index(b)]
 		else:
 			return -123456789 - 42 #some tiny number in case we match a "-"
 			
 	def __forwardsAlgorithm(self, isSW, a, b):
+		""" The Forwards Algorithm for a Dynamic Programming Problem
+		Returns the produced cost matrix
+		
+		Keyword arguments:
+		isSW -- if True, this is for the Smith-Waterman algorithm, else Needleman-Wunsch
+		a -- The first sequence to match
+		b -- The second sequence to match
+		"""
 		costMatrix = []
 	
 		for i in range(len(a)):
@@ -33,13 +52,13 @@ class AminoAcidMutation(object):
 			for j in range(len(b)):
 				vals = []
 				if i > 0 and j > 0:
-					vals.append(costMatrix[i-1][j-1] + self.subCost(a[i],b[j]))
+					vals.append(costMatrix[i-1][j-1] + self.__subcost(a[i],b[j]))
 			
 				if i > 0:
-					vals.append(costMatrix[i-1][j] + self.insertionCost)
+					vals.append(costMatrix[i-1][j] + self.__insertionCost)
 			
 				if j > 0:
-					vals.append(costMatrix[i][j-1] + self.insertionCost)
+					vals.append(costMatrix[i][j-1] + self.__insertionCost)
 			
 				if isSW or not vals:
 					vals.append(0)
@@ -49,6 +68,14 @@ class AminoAcidMutation(object):
 		return costMatrix
 		
 	def __backwardsAlgorithm(self, isSW, a, b, costMatrix):
+		""" The Backwards Algorithm for a Dynamic Programming Problem
+		
+		Keyword arguments:
+		isSW -- if True, this is for the Smith-Waterman algorithm, else Needleman-Wunsch
+		a -- The first sequence to match
+		b -- The second sequence to match
+		costMatrix -- The costMatrix made by the forward algorithm
+		"""
 		done = False
 		a_match = ""
 		b_match = ""
@@ -72,16 +99,16 @@ class AminoAcidMutation(object):
 		
 		while not done:
 			currentVal = costMatrix[i][j]
-			if currentVal == costMatrix[i-1][j-1] + self.subCost(a[i],b[j]):
+			if currentVal == costMatrix[i-1][j-1] + self.__subcost(a[i],b[j]):
 				a_match+=a[i]
 				b_match+=b[j]
 				i-=1
 				j-=1
-			elif currentVal == costMatrix[i-1][j] + self.insertionCost:
+			elif currentVal == costMatrix[i-1][j] + self.__insertionCost:
 				a_match+=a[i]
 				b_match+=blank
 				i-=1
-			elif currentVal == costMatrix[i][j-1] + self.insertionCost:
+			elif currentVal == costMatrix[i][j-1] + self.__insertionCost:
 				a_match+=blank
 				b_match+=b[j]
 				j-=1
@@ -157,16 +184,20 @@ class HiddenMarkovModel(object):
 		return string
 		
 	def transitionProb(self, fromState, toState):
+		""" Returns the probability the fromState will transition to toState """
 		return self.states[fromState].transitions[toState]
 		
 	def emissionProb(self, state, emission):
+		""" Returns the probability that emission is emitted while in state """
 		return self.states[state].outputs[self.outputs.index(emission)]
 		
 	def viterbi(self, sequence):
+		""" Finds the most likely sequence of states in the given sequence """
 		#forwards algoirithm
 		initialState = 0
 		probabilities = []
 		pointer = []
+		
 		for i in range(len(self.states)):
 			pointer.append([None]) #first pointer points to nothing
 			if i == initialState:
@@ -187,10 +218,12 @@ class HiddenMarkovModel(object):
 		for probs in probabilities:
 			finalValues.append(probs[len(sequence)-1])
 		state = finalValues.index(max(finalValues))
+		
 		stateSequence = ""
 		for t in range(len(sequence)-1,-1, -1):
 			stateSequence += str(state)
 			state = pointer[state][t]
+			
 		print("Sequence: " + sequence)
 		print("  States: " + stateSequence[::-1])
 
