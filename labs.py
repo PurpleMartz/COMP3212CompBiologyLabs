@@ -224,8 +224,14 @@ class HiddenMarkovModel(object):
 			stateSequence += str(state)
 			state = pointer[state][t]
 			
-		print("Sequence: " + sequence)
-		print("  States: " + stateSequence[::-1])
+		stateSequence = stateSequence[::-1]
+		printSequence = ""
+		
+		for t in range(len(stateSequence)):
+			printSequence+=('\033[4'+stateSequence[t]+'m'+sequence[t])
+		printSequence+='\033[0m' #resets colors
+		print("Sequence: " + printSequence)
+		print("  States: " + stateSequence)
 
 blosumCosts = loadBlosum50()
 match = AminoAcidMutation(blosumCosts)
