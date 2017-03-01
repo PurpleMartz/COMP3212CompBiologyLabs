@@ -148,13 +148,19 @@ class HiddenMarkovModel(object):
 		""" A State in a Hidden Markov Model
 		
 		Attributes:
-			transitions: A list of probabilities that show which will be the next state
-			outputs: A list of probabilites the show the likelihood of an output
+			transitions: A list of log probabilities that show which will be the next state
+			outputs: A list of log probabilites the show the likelihood of an output
 		"""
 		def __init__(self, outputs, transitions):
+			""" Initializes a State in a Hidden Markov Model
+		
+			Keyword arguments:
+			transitions: A list of probabilities of transitions to different states
+			outputs: A list of probabilites of each output
+			"""
 			tolerance = 0.01
-			self.transitions = transitions
-			self.outputs = outputs
+			self.transitions = self.__probsToLogProbs(transitions)
+			self.outputs = self.__probsToLogProbs(outputs)
 			count = 0
 			for output in outputs:
 				count += output
@@ -165,11 +171,29 @@ class HiddenMarkovModel(object):
 		def __str__(self):
 			return ("Outputs: " + str(self.outputs) + "\n" 
 			     + "Transitions: " + str(self.transitions))
+			     
+		def __probsToLogProbs(self, probabilities):
+			""" Converts a list of probabilities into a list of log probabilities """
+			from math import log
+			logProbs = []
+			for probability in probabilities:
+				logProbs.append(log(probability))
+			return logProbs
+			
+		def __logProbsToProbs(self, logProbs):
+			""" Converts a list of log probabilities into a list of probabilities """
+			from math import exp
+			probabilities = []
+			for logProb in logProbs:
+				probabilities.append(exp(logProb))
+			return probabilities
 	
 	def __init__(self, outputs, states):
 		self.outputs = outputs
 		self.states = states
+		
 		for i in range(len(states)):
+			#makes sure that 
 			state = states[i]
 			if len(outputs) != len(state.outputs):
 				print("Error: State " + str(i) + " has " + str(len(state.outputs))
@@ -200,6 +224,9 @@ class HiddenMarkovModel(object):
 		#forwards algoirithm
 		initialState = 0
 		probabilities = []
+		"""probabilites doesn't have to be a matrix as we only lookup the
+		   previous step, and never lookup anything else. (but it helps for debugging)
+		"""
 		pointer = []
 		
 		for i in range(len(self.states)):
@@ -214,10 +241,15 @@ class HiddenMarkovModel(object):
 		for t in range(1, len(sequence)):
 			#t starts at 1 since first prob is predefined
 			for i in range(len(self.states)):
-				vals = []
+			
+				vals = [] #val has all possible probabilites[i][t] for this field
 				for j in range(len(self.states)):
-					vals.append(probabilities[j][t-1] * self.transitionProb(i, j))
-				probabilities[i].append(self.emissionProb(i, sequence[t]) * max(vals))
+					#using + not * as probabilites are in log format
+					vals.append(probabilities[j][t-1] + self.transitionProb(i, j))
+				
+				#best probability for probabilites[i][t]
+				probabilities[i].append(self.emissionProb(i, sequence[t]) + max(vals))
+				
 				#pointer to which state was the previous state
 				pointer[i].append(vals.index(max(vals)))
 		
@@ -240,10 +272,13 @@ class HiddenMarkovModel(object):
 		#the following loop adds colors to the sequence showing the state
 		for t in range(1,len(stateSequence)):
 			#t starts at 1 since first char is a space
+			
 			if t <= 1 or stateSequence[t-1] != stateSequence[t]:
 				# if state changed, changes background color of text
 				printSequence+= '\033[4'+stateSequence[t]+';97m'
+			
 			printSequence += sequence[t]
+		
 		printSequence+='\033[39;49m' #resets colors
 		print("Sequence: " + printSequence)
 
