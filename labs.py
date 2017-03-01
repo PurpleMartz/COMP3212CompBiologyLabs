@@ -2,8 +2,8 @@ from __future__ import division
 def loadBlosum50():
 	"""Loads the BLOSUM50 Matrix from a text file
 	"""
-	with open('blosum50.txt') as file:
-		content = file.readlines()
+	with open('blosum50.txt') as f:
+		content = f.readlines()
 	content = [x.strip() for x in content] #removes \n character
 	
 	blosumCosts = []
@@ -12,7 +12,27 @@ def loadBlosum50():
 		lineArray = [int(x) for x in lineArray if x]
 		blosumCosts.append(lineArray)
 	return blosumCosts
-              
+
+class Fasta(object):
+	"""Class used to store FASTA file
+	
+	Attributes:
+		header - Contains the Header of the FASTA file
+		sequence - Contains the sequence in the FASTA file
+	
+	TODO: This code doesn't meet the FASTA specs:
+		see <https://en.wikipedia.org/wiki/FASTA_format> for more info
+	"""
+	def __init__(self, fileName):
+		"""Constructor, fileName is a string showing the fileName to load """
+		with open(fileName, "r") as f:
+			self.header = f.readline()
+			sequence = f.readlines()
+			sequence = "".join(sequence)
+			sequence = [x.strip() for x in sequence] #removes \n characters
+			sequence = "".join(sequence)
+			self.sequence = sequence
+
 class AminoAcidMutation(object):
 	"""Class used for comparing whether protein sequences are from the same species
 	"""
@@ -302,14 +322,9 @@ dishonestCasino = HiddenMarkovModel(("123456"),
                                                  (1/10, 9/10))))
 dishonestCasino.viterbi("5453525456666664365666635661416626365666621166211311155566351166565663466653642535666662541345464155")
 
-phaseLamda = open("phaseLambda.fasta", "r").readlines()[1:] #load all but the first line
-phaseLamda = "".join(phaseLamda)
-phaseLamda = [x.strip() for x in phaseLamda] #removes \n characters
-phaseLamda = "".join(phaseLamda)
-
 cgRich = HiddenMarkovModel(("ATCG"),
                      (HiddenMarkovModel.State((0.2698, 0.3237, 0.2080, 0.1985),
                                               (0.9998, 0.0002)),
                      (HiddenMarkovModel.State((0.2459, 0.2079, 0.2478, 0.2984),
                                               (0.0003, 0.9997)))))
-cgRich.viterbi(phaseLamda)
+cgRich.viterbi(Fasta("phaseLambda.fasta").sequence)
