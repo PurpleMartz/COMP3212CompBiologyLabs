@@ -2,7 +2,7 @@ from __future__ import division
 def loadBlosum50():
 	"""Loads the BLOSUM50 Matrix from a text file
 	"""
-	with open('blosum50.txt') as f:
+	with open('./data/blosum50.txt') as f:
 		content = f.readlines()
 	content = [x.strip() for x in content] #removes \n character
 	
@@ -327,4 +327,4 @@ cgRich = HiddenMarkovModel(("ATCG"),
                                               (0.9998, 0.0002)),
                      (HiddenMarkovModel.State((0.2459, 0.2079, 0.2478, 0.2984),
                                               (0.0003, 0.9997)))))
-cgRich.viterbi(Fasta("phaseLambda.fasta").sequence)
+cgRich.viterbi(Fasta("./data/phaseLambda.fasta").sequence)
