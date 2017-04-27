@@ -11,7 +11,7 @@ function simulation(P, s, u, v)
     n(t) = binomial_rnd(P, p_sm);
   end
   plot([1:t], n)
-  #graceplot([1:t], n)
+  %graceplot([1:t], n)
   xlabel('Generations, t')
   ylabel('Number of mutants')
   z = [[1:t]',n'];

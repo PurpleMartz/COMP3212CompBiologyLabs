@@ -57,7 +57,10 @@ function steady_state(P,s,u,v)
   [V,L]=eig(W);
   % Use the approximate formula for the diffusion equation
   z=x.^(2*P*u-1).*(1-x).^(2*P*v-1).*exp(2*P*s*x);
-  z = z/sum(z)
+  z = z/sum(z);
   % plot results
   plot(x,y,x,V(:,1)/sum(V(:,1)),x,z)
-  legend('diffusion','markov','approximate diffusion',0)
+  xlabel('Number of mutants, n');
+ylabel('P(n)');
+title('Steady-State Probabilites Calculated Using Different Methods');
+  legend('diffusion','markov','approximate diffusion')
