@@ -87,9 +87,9 @@ function markov(P, s, u, v, T)
   for t = 1:T
     average(t) = mean(x*p);
     p = W*p;
-    plot3(x,p,zeros(length(x),1)+t, 'blue');
+    plot3(x,p,zeros(length(x),1)+t, 'Color', 'blue');
   end
-  plot3(average, zeros(length(average),1), [1:T], 'red');
+  plot3(average, zeros(length(average),1), [1:T], 'Color' , 'red');
   xlabel('Number of mutants, n');
   ylabel('P(n)');
   zlabel('t');
