@@ -1,6 +1,7 @@
 from numpy import *
 from scipy import integrate, optimize
 import pylab as p
+import random
 
 class ODESystemSimulator(object):
 	"""Class used to simulate an N-chemical system
@@ -104,6 +105,75 @@ class ODESystemSimulator(object):
 		p.xlim(0, xmax)
 		p.ylim(0, ymax)
 		p.show()
+		
+class Reaction:
+	"""A class that stores the information for one reaction
+	
+	Variables:
+		propensity: A function that takes an array of all the variables as
+			        an input and outputs the propensity
+		changes: An array that shows how all the variables change if the
+			     reaction occurs.
+	"""
+	def __init__(self, propensity, changes):
+		"""Constructor
+		
+		Args:
+			propensity: A function that takes an array of all the variables as
+			            an input and outputs the propensity
+			changes: An array that shows how all the variables change if the
+			         reaction occurs.
+		"""
+		self.propensity = propensity
+		self.changes = changes
+
+
+def gillespieAlgorithm(numberOfVariables, reactions, initialConditions, steps = 500):
+	"""A function that calculates and plots the results of Gillespie's Algorithm
+	
+	Args:
+		numberOfVariables: The number of variables in the system. This must
+		                   match the expected input of the reactions
+		reactions: A list of Reaction objects that show the system reactions
+		initialConditions: the initial conditions
+		steps: The number of simulation steps that should be used.
+	"""
+	t = [0]
+	X = [initialConditions]
+	
+	if len(initialConditions) != numberOfVariables:
+		print("Length of initialConditions: %.i != numberOfVariables: %.i" %
+		      (initialConditions, numberOfVariables))
+
+	for iteration in range(steps):
+		currentVals = X[iteration]
+
+		prospensities = []
+		for reaction in reactions:
+			prospensities.append(reaction.propensity(currentVals))
+
+		totalProspensity = sum(prospensities)
+		t.append(-1/totalProspensity * log(1-random.random()) + t[iteration])
+
+		prospensities /= totalProspensity
+		subtotalProspensity = 0
+
+		chosenProspensity = random.random() #number in range [0, 1)
+
+		for i in range(len(prospensities)):
+			subtotalProspensity += prospensities[i]
+			if(subtotalProspensity >= chosenProspensity):
+				X.append(array(reactions[i].changes) + array(currentVals))
+				break
+	X = array(X)
+	graph = p.figure()
+	for i in range(numberOfVariables):
+		p.step(t, X[:, i], lw=0.5, label=r"Gillespie's $X_" + str(i) + r'$')
+	p.title('System Concentrations over time')
+	p.xlabel(r"Time, $t$")
+	p.ylabel("Variable Concentrations")
+	p.legend()
+	p.show()
 
 def dX_dt(inputs, t=0):
 	X = inputs[0]
@@ -111,7 +181,13 @@ def dX_dt(inputs, t=0):
 	dX_dt = 1 + 0.02* X**2 *Y - 2*X - 0.04*X
 	dY_dt = 2*X - 0.02* X**2 *Y
 	return [dX_dt, dY_dt]
+	
+reactions = [Reaction(lambda X: 1, [1,0]),
+             Reaction(lambda X: 2*X[0], [-1,1]),
+             Reaction(lambda X: 0.02* X[0]**2 *X[1], [1,-1]),
+             Reaction(lambda X: 0.04*X[0], [-1,0])]
+gillespieAlgorithm(2, reactions, [0, 0])
 
 system = ODESystemSimulator(dX_dt, 2)
-system.concentrations(200)
+system.concentrations(500)
 system.trajectories()
