@@ -3,22 +3,44 @@ from scipy import integrate, optimize
 import pylab as p
 import random
 
-class ODESystemSimulator(object):
+class chemicalReactionsSystem(object):
 	"""Class used to simulate an N-chemical system
 	
 	Attributes:
-		__systemFunction: A function consisting of all the ODEs
+		__reactions: A list consisting of all the Reaction objects representing
+		             all the reactions in the system
 		__systemSize: The number of varaibles in the system
 		
 	"""
-	def __init__(self, function, numVariables):
+	def __init__(self, reactions, numVariables):
 		"""Constructor
 		Args:
-			listOfODEs: A list of ODEs, one for each variable.
-				They should be in the format: func dX_dt(X, t) return X
+			reactions: A list consisting of all the Reaction objects representing
+			           all the reactions in the system
+			numVariables: The number of varaibles in the system
 		"""
-		self.__systemFunction = function
+		self.__reactions = reactions
 		self.__systemSize = numVariables
+		
+	def __getODE(self):
+		""" Creates an ODE of the system.
+		
+		Returns a function dX_dt(X, t=0):
+			Args:
+				X: A self.__systemSize sized list of inputs
+				t: The time
+			Returns the derivative of X of t, a self.__systemSize sized list.
+		"""
+		def dX_dt(X, t=0):
+			output = 0.0 * array(X)
+			for reaction in reactions:
+				dX1 = 0.0 * array(X)
+				for i in range(self.__systemSize):
+					dX1[i] = array( reaction.propensity(X) ) * reaction.changes[i]
+				output+= dX1
+			return output
+			
+		return dX_dt
 	
 	def getOutput(self, initialConditions, t=0):
 		"""Returns the output of the system at times t, when the system has the
@@ -36,7 +58,9 @@ class ODESystemSimulator(object):
 		if(len(initialConditions) != self.__systemSize):
 			print("Inputed " + initialConditions + 
 			       " initial conditions but there is only " + self.__systemSize)
-		X = integrate.odeint(self.__systemFunction, initialConditions, t)
+			       
+		
+		X = integrate.odeint(self.__getODE(), initialConditions, t)
 		return X
 		
 	def concentrations(self, endTime = 1000, Xs = [0, 1]):
@@ -89,7 +113,8 @@ class ODESystemSimulator(object):
 		y = linspace(0, ymax, samplingPoints)
 
 		X, Y = meshgrid(x, y) # create grid
-		DX, DY = self.__systemFunction([X, Y]) # compute derivative of the grid
+		odeFunction = self.__getODE()
+		DX, DY = odeFunction([X, Y]) # compute derivative of the grid
 		M = (hypot(DX, DY)) # Norm of the derivative 
 		M[ M == 0] = 1. # Make sure there are no M==1, so no divide by 0 error 
 		DX /= M # Normalize each arrow
@@ -174,20 +199,13 @@ def gillespieAlgorithm(numberOfVariables, reactions, initialConditions, steps = 
 	p.ylabel("Variable Concentrations")
 	p.legend()
 	p.show()
-
-def dX_dt(inputs, t=0):
-	X = inputs[0]
-	Y = inputs[1]
-	dX_dt = 1 + 0.02* X**2 *Y - 2*X - 0.04*X
-	dY_dt = 2*X - 0.02* X**2 *Y
-	return [dX_dt, dY_dt]
 	
 reactions = [Reaction(lambda X: 1, [1,0]),
              Reaction(lambda X: 2*X[0], [-1,1]),
              Reaction(lambda X: 0.02* X[0]**2 *X[1], [1,-1]),
              Reaction(lambda X: 0.04*X[0], [-1,0])]
-gillespieAlgorithm(2, reactions, [0, 0])
+#gillespieAlgorithm(2, reactions, [0, 0])
 
-system = ODESystemSimulator(dX_dt, 2)
+system = ODESystemSimulator(reactions, 2)
 system.concentrations(500)
 system.trajectories()
