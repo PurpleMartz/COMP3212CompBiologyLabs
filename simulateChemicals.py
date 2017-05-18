@@ -3,7 +3,7 @@ from scipy import integrate, optimize
 import pylab as p
 import random
 
-class chemicalReactionsSystem(object):
+class ChemicalReactionsSystem(object):
 	"""Class used to simulate an N-chemical system
 	
 	Attributes:
@@ -33,7 +33,7 @@ class chemicalReactionsSystem(object):
 		"""
 		def dX_dt(X, t=0):
 			output = 0.0 * array(X)
-			for reaction in reactions:
+			for reaction in self.__reactions:
 				dX1 = 0.0 * array(X)
 				for i in range(self.__systemSize):
 					dX1[i] = array( reaction.propensity(X) ) * reaction.changes[i]
@@ -63,7 +63,7 @@ class chemicalReactionsSystem(object):
 		X = integrate.odeint(self.__getODE(), initialConditions, t)
 		return X
 		
-	def concentrations(self, endTime = 1000, Xs = [0, 1]):
+	def concentrations(self, endTime = 500, Xs = [0, 1]):
 		"""Shows the concentrations of the system over time
 		
 		Args:
@@ -72,10 +72,31 @@ class chemicalReactionsSystem(object):
 		"""
 		t = linspace(0, endTime,  100000)
 		X = self.getOutput([0] * self.__systemSize, t)
-		graph = p.figure()
 		for Xnum in Xs:
-			p.plot(t, X[:, Xnum], ls="--", label=r'$X_' + str(Xnum) + r'$')
-		p.title('System Concentrations over time')
+			p.plot(t, X[:, Xnum], ls="--", label=r'ODE: $X_' + str(Xnum) + r'$')
+		p.title('System Concentrations with ODE model')
+		p.xlabel(r"Time, $t$")
+		p.ylabel("Variable Concentrations")
+		p.legend()
+		p.show()
+		
+	def gillespieConcentrations(self, steps = 500, Xs = [0, 1]):
+		"""Shows the concentrations of the system over time using Gillespie's
+		Algorithm
+		
+		Args:
+			steps: Number of simulation steps to use
+			Xs: The variables to plot
+		"""
+		X, t = self.gillespieAlgorithm([0]*self.__systemSize, steps)
+		
+		t1 = linspace(0, t[-1],  100000)
+		X1 = self.getOutput([0] * self.__systemSize, t1)
+		
+		for Xnum in Xs:
+			p.step(t, X[:, Xnum], lw = 0.5, label=r'Gillespie: $X_' + str(Xnum) + r'$')
+			p.plot(t1, X1[:, Xnum], ls="--", label=r'ODE: $X_' + str(Xnum) + r'$')
+		p.title('System Concentrations with Gillespie model')
 		p.xlabel(r"Time, $t$")
 		p.ylabel("Variable Concentrations")
 		p.legend()
@@ -94,7 +115,6 @@ class chemicalReactionsSystem(object):
 			X1: the x-axis variable
 			X2: the y-axis variable
 		"""
-		fig = p.figure()
 		
 		t = linspace(0, endTime,  100000)
 		
@@ -131,6 +151,86 @@ class chemicalReactionsSystem(object):
 		p.ylim(0, ymax)
 		p.show()
 		
+	def gillespieTrajectories(self, listInitialConditions = [[0, 0], [8, 8], [4, 23]],
+	                          steps = 10000, X1 = 0, X2 = 1):
+		"""Shows the trajectories of the system depending on the initial conditions.
+		Uses Gillespie's 'Algorithm to calculate
+		
+		Args:
+			listInitialConditions: a list of all the intialConditions, ie a list
+			                       of arrays.
+			steps: the number of time steps to simulate for
+			X1: the x-axis variable
+			X2: the y-axis variable
+		"""
+		
+		lineThickness = 1.5**(len(listInitialConditions))
+		
+		for initialConditions in listInitialConditions:
+			lineThickness /= 1.5
+			X, t = self.gillespieAlgorithm(initialConditions, steps)
+			
+			t_a = linspace(0, t[-1],  100000)
+			X_a = self.getOutput([0] * self.__systemSize, t_a)
+			
+			p.plot( X_a[:,X1], X_a[:,X2], lw=lineThickness, ls='--', label='ODE: Initial Conditions = (%.f, %.f)' % ( initialConditions[X1], initialConditions[X2]) )
+		
+			p.plot( X[:,X1], X[:,X2], lw=lineThickness/2, label="Gillespie': Initial Conditions = (%.f, %.f)" % ( initialConditions[X1], initialConditions[X2]) )
+		
+		p.title('Trajectories and Directions')
+		p.xlabel(r'$X_' + str(X1) + r'$')
+		p.ylabel(r'$X_' + str(X2) + r'$')
+		p.legend()
+		p.show()
+		
+	def gillespieAlgorithm(self, initialConditions, steps = 500):
+		"""A function that calculates and plots the results of Gillespie's Algorithm
+	
+		Args:
+			initialConditions: the initial conditions
+			steps: The number of simulation steps that should be used.
+			
+		Returns X, t:
+			X: the output of the algorithm
+			t: the time at each of the outputs
+		"""
+		t = [0]
+		X = [initialConditions]
+	
+		if len(initialConditions) != self.__systemSize:
+			print("Length of initialConditions: %.i != numberOfVariables: %.i" %
+				  (initialConditions, self.__systemSize))
+		
+		for iteration in range(steps):
+			currentVals = X[iteration]
+			
+			prospensities = []
+			for reaction in self.__reactions:
+				prospensities.append(reaction.propensity(currentVals))
+			
+			totalProspensity = sum(prospensities)
+			
+			# find the time delay until the event
+			t.append(-1/totalProspensity * log(1-random.random()) + t[iteration])
+
+			# all the prospensities add up to 1.00 now, like a probability
+			prospensities /= totalProspensity
+			subtotalProspensity = 0
+
+			chosenProspensity = random.random() #number in range [0, 1)
+
+			for i in range(len(prospensities)):
+				subtotalProspensity += prospensities[i]
+				if(subtotalProspensity >= chosenProspensity):
+					# reaction i is the winner!
+					newX = array(self.__reactions[i].changes) + array(currentVals)
+					# time to update X
+					X.append( newX )
+					break
+		X = array(X)
+		
+		return X, t
+	
 class Reaction:
 	"""A class that stores the information for one reaction
 	
@@ -151,61 +251,19 @@ class Reaction:
 		"""
 		self.propensity = propensity
 		self.changes = changes
-
-
-def gillespieAlgorithm(numberOfVariables, reactions, initialConditions, steps = 500):
-	"""A function that calculates and plots the results of Gillespie's Algorithm
-	
-	Args:
-		numberOfVariables: The number of variables in the system. This must
-		                   match the expected input of the reactions
-		reactions: A list of Reaction objects that show the system reactions
-		initialConditions: the initial conditions
-		steps: The number of simulation steps that should be used.
-	"""
-	t = [0]
-	X = [initialConditions]
-	
-	if len(initialConditions) != numberOfVariables:
-		print("Length of initialConditions: %.i != numberOfVariables: %.i" %
-		      (initialConditions, numberOfVariables))
-
-	for iteration in range(steps):
-		currentVals = X[iteration]
-
-		prospensities = []
+		
+	def rescaleReactions(reactions, scaling):
+		"""Rescales the reactions so that although the ODEs are the same,
+		Gillespie's algorithm works with fractions of a molecule.
+		
+		Args:
+			reactions: A list of Reaction objects
+			scaling: A float to scale the reactions by
+		"""
+		newReactions = []
+		def scaleProspensity(propensity, scaling):
+			return lambda X: propensity(X) * scaling
 		for reaction in reactions:
-			prospensities.append(reaction.propensity(currentVals))
-
-		totalProspensity = sum(prospensities)
-		t.append(-1/totalProspensity * log(1-random.random()) + t[iteration])
-
-		prospensities /= totalProspensity
-		subtotalProspensity = 0
-
-		chosenProspensity = random.random() #number in range [0, 1)
-
-		for i in range(len(prospensities)):
-			subtotalProspensity += prospensities[i]
-			if(subtotalProspensity >= chosenProspensity):
-				X.append(array(reactions[i].changes) + array(currentVals))
-				break
-	X = array(X)
-	graph = p.figure()
-	for i in range(numberOfVariables):
-		p.step(t, X[:, i], lw=0.5, label=r"Gillespie's $X_" + str(i) + r'$')
-	p.title('System Concentrations over time')
-	p.xlabel(r"Time, $t$")
-	p.ylabel("Variable Concentrations")
-	p.legend()
-	p.show()
-	
-reactions = [Reaction(lambda X: 1, [1,0]),
-             Reaction(lambda X: 2*X[0], [-1,1]),
-             Reaction(lambda X: 0.02* X[0]**2 *X[1], [1,-1]),
-             Reaction(lambda X: 0.04*X[0], [-1,0])]
-#gillespieAlgorithm(2, reactions, [0, 0])
-
-system = ODESystemSimulator(reactions, 2)
-system.concentrations(500)
-system.trajectories()
+			newReactions.append(Reaction(scaleProspensity(reaction.propensity, scaling),
+			                             array(reaction.changes) / array(scaling)))
+		return newReactions
