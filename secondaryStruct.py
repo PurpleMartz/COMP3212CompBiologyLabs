@@ -332,19 +332,18 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 					
 				# Display logs per epoch step
 				if epoch % display_step == 0:
-					print("Epoch:", '%04d' % (epoch+1), " train cost =", \
-						  "{:.9f}".format(avg_cost))
-					print("      correct validations =", \
+					print("Epoch:", '%04d' % (epoch+1), " cost =", \
+						  "{:.9f}".format(avg_cost) + " validate =", \
 						  "{:.9f}".format(100*valid_avg_percentage) + "%")
 						  
-				if(best_validation >= valid_avg_percentage):
-					print("Overfitting so maybe you should stop")
-				else:
+				if(best_validation < valid_avg_percentage):
 					best_validation = valid_avg_percentage
 					# backup weights and biases
 					for i in range(len(weights)):
 						sess.run(best_weights[i].assign(weights[i]))
 						sess.run(best_biases[i].assign(biases[i]))
+				#else:
+					#print("Validation Score went down, might be overfitting!")
 					
 				prev_valid_cost = valid_avg_percentage
 				
@@ -364,7 +363,6 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 		actuals = testingFASTAs[0].secondaryStruct
 		testSize = 10
 		for i in range(1, testSize):
-			print("Lengths: " + str(len(test_x)) + " " + str(len(actuals)))
 			test_x_i, test_y_i = testingFASTAs[i].createInputOutput()
 			test_x = np.concatenate( (test_x, test_x_i) )
 			test_y = np.concatenate( (test_y, test_y_i) )
@@ -387,10 +385,4 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 			predictions += secondaryStructKey[predict]
 			
 		printReport(predictions, actuals)
-		
-			
-testingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_test1199.txt", 500)
-loadJpred4Results("/home/alois/Downloads/spider/*/*.simple.html", testingFASTAs)
 
-trainingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_train.txt", 1000)
-secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, [50, 50], weightCost = 0.05)
