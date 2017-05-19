@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 import random
 from datetime import datetime
+import glob
+import re
 
 class SecondaryStructFASTA(object):
 	"""Class used to store a FASTA object that has
@@ -19,10 +21,10 @@ class SecondaryStructFASTA(object):
 		"""Constructor, fileName is a string showing the fileName to load """
 		self.header = header
 		self.sequence = sequence
-		self.secondaryStruct = secondaryStruct
+		self.secondaryStruct = secondaryStruct.replace("X", "C") #removes "X"
 	
 	aminoAcids = "ARNDCQEGHILKMFPSTWYVBZ"
-	secondaryStructKey = "XCEH"
+	secondaryStructKey = "HEC"
 	 
 	def createInputOutput(self, windowsSize = 17):
 	
@@ -73,6 +75,74 @@ def outputWithoutSecondaryStruct(SecondaryStructFASTAs, fileName):
 		for SecondaryStructFASTA in SecondaryStructFASTAs:
 			f.write(">" + SecondaryStructFASTA.header + "\n")
 			f.write(SecondaryStructFASTA.sequence + "\n")
+			
+def loadJpred4Results(filename, actualData):
+	""" Loads a list of Jpred4 results with secondary structure information.
+	
+	The input filename should be an Unix style pathname with wildcards so that
+	all the Jpred4 result's *.simple.html is loaded.
+	
+	Args:
+		filename: The Unix style pathname to all the *.simple.html files
+		actualData: The actual test data
+	"""
+	def cleanHTML(rawHTML):
+		""" Removes HTML tags and whitespace from a string
+		"""
+		cleanr = re.compile('<.*?>')
+		cleantext = re.sub(cleanr, '', rawHTML).strip()
+		return cleantext
+		
+	sequences = []
+  
+	for currentFilename in glob.glob(filename):
+		with open(currentFilename, "r") as f:
+			header = currentFilename
+			sequence, secondaryStruct = f.readlines()[5:7]
+			
+			sequence = cleanHTML(sequence)
+			secondaryStruct = cleanHTML(secondaryStruct).replace("-", "C")
+			
+			sequences.append(SecondaryStructFASTA(header, sequence, secondaryStruct))
+	
+	total = 0
+	correct = 0
+	
+	print("Number of sequences loaded: " + str(len(sequences)))
+	
+	structKey = "HEC"
+	wrongPredictions = [0] * len(structKey)
+	correctPredictions = [0] * len(structKey)
+	
+	for sequence in sequences:
+		# finds the SecondaryStructFASTA object that has the same sequence
+		actualSequence, = [seq for seq in actualData if seq.sequence == sequence.sequence]
+		total += len(sequence.secondaryStruct)
+		correct += sum(a==b for a,b in zip(sequence.secondaryStruct, actualSequence.secondaryStruct))
+		
+		for predict, actual in zip(sequence.secondaryStruct, actualSequence.secondaryStruct):
+			if( predict == actual):
+				correctPredictions[structKey.index(predict)]+=1
+			else:
+				wrongPredictions[structKey.index(predict)]+=1
+			
+	printReport(correctPredictions, wrongPredictions, structKey)
+
+def printReport(correctPredictions, wrongPredictions, structKey):
+	"""
+	"""
+	total = sum(correctPredictions) + sum(wrongPredictions)
+	print("Total Predictions: " + str(total))
+	print("Total Percent Correct = " + str(sum(correctPredictions)/total)
+	      + " Wrong = " + str(sum(wrongPredictions)/total))
+	      
+	totalPredictions = np.array(correctPredictions) + np.array(wrongPredictions)
+	
+	correctPredictions = np.array(correctPredictions)/totalPredictions
+	wrongPredictions = np.array(wrongPredictions)/totalPredictions
+	for i in range(len(correctPredictions)):
+		print(structKey[i] + ": Correct = " + str(correctPredictions[i])
+		      + " Wrong = " + str(wrongPredictions[i]))
 
 def loadSecondaryStructFASTAs(fileName, limit = 2000, seqLengthLimit = 2000):
 	""" Loads a list of FASTA objects with secondary structure information.
@@ -157,7 +227,7 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 
 	# Network Parameters
 	n_input = 17*22 # size of the input (window size 17, 21 entries)
-	n_classes = 4 # total classes (H, C, E, and X)
+	n_classes = 3 # total classes (H, E, C)
 	n_hidden = layerSizes
 
 	# tf Graph input
@@ -267,6 +337,8 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 	
 		print("Accuracy:", accuracy.eval({x: test_x, y: test_y}))
 			
-trainingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_train.txt", 1000)
 testingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_test1199.txt", 500)
+loadJpred4Results("/home/alois/Downloads/spider/*/*.simple.html", testingFASTAs)
+
+trainingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_train.txt", 1000)
 secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, [500, 1000])
