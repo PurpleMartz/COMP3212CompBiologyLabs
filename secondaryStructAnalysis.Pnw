@@ -1,0 +1,161 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{hyperref} % adds hyperlinks to the code
+\usepackage{multicol, caption}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{cite} % for citations
+\usepackage{palatino}
+\usepackage{minted}
+
+\newenvironment{Figure}
+	{\par\medskip\noindent\minipage{\linewidth}}
+	{\endminipage\par\medskip}
+
+% Define new length
+\newlength{\figureWidth}
+% Set the new length to a specific value
+\setlength{\figureWidth}{3in}
+
+\newcommand{\makeFigure}[3]{
+	\begin{Figure}
+		\centering
+		\includegraphics [width=\figureWidth]{html/{#1}}
+		\captionof{figure}{#2}
+		\label{fig:#3}
+	\end{Figure}
+}
+
+\setlength{\columnsep}{2cm}
+\usepackage[a4paper, total={7in, 8.5in}]{geometry}
+
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+
+\definecolor{lightgray}{gray}{0.5}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\usepackage{fancyhdr} % adds headers and footers
+\pagestyle{fancy} % has to go after margin creation code
+
+\lhead{ \fancyplain{}{Alois Klink} }
+\chead{Secondary Protein Structure Prediction }
+\rhead{ \fancyplain{}{2704 7555} }
+\begin{document}
+	
+	\title{Secondary Protein Structure Prediction}
+	\author{Alois Klink \and \href{mailto:ak9g14@soton.ac.uk}{ak9g14@soton.ac.uk} \and 2704 7555}
+	\maketitle
+
+\section{Data Set}
+
+\label{sec:dataCreation}
+\begin{par}
+	The data-set used was found from \cite{yang_2015}. As outputs, it lists \lstinline|H| (H, G, and I: the helixes), \lstinline|E| (E: \(\beta\)-sheet, and B: \(\beta\)-bridge), and \lstinline|C| (everything else).There were also a couple rare \lstinline|X|s as outputs. This data set was chosen for a few reasons:
+\end{par}
+	
+Firstly, it was in FASTA format, which made it extremely easy to plug the data into a Python program, which
+would be able to do all the secondary protein structure prediction.
+Also, most online secondary protein structure predictors can take the FASTA format as an input.
+
+Secondly, there are many different proteins in the dataset, roughly 2000 in the training dataset and 1200 in the testing dataset. This large sample should accurately describe most proteins.
+
+Lastly, other than UCI's Molecular Biology (Protein Secondary Structure) Data Set, which does not use FASTA and is quite small, I did not find any other dataset online.
+
+The distributions of the secondary protein structures in the dataset can be found below. \cite{ramkumar2016analysis} states that a protein has, on average, ``32\% alpha helices, 21\% beta sheets and 47\% loops", which is similar to what is found below.
+<<>>=
+from secondaryStruct import *
+
+trainingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_train.txt", 1000)
+testingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_test1199.txt", 500)
+counts = [0] * 3
+secondaryStructKey = "HE-"
+for testingFASTA in testingFASTAs:
+	for a in testingFASTA.secondaryStruct:
+		counts[ secondaryStructKey.index(a) ] += 1
+print("Distributions of the secondary protein structures")
+print([secondaryStructKey[i] + ": " + str(counts[i]/sum(counts)) + "% " for i
+      in range(3)])
+@
+
+\section{JPred4}
+
+JPred4 \cite{JPred4} is a popular protein secondary structure prediction server, which claims to be "one of the most accurate methods for secondary structure prediction", as it uses the JNet algorithm. \cite{doi:10.1093/nar/gkv332}. According to \cite{doi:10.1093/nar/gkv332}, a blind-three-state (i.e using only \lstinline|H|, \lstinline|E|, and \lstinline|C|) has reached 82\% accuracy. The algorithm uses PSI-BLAST \cite{altschul1997gapped} first, together with the UniRef database \cite{doi:10.1093/bioinformatics/btm098} to create four different alignment profiles.
+
+A sliding window over the amino-acid sequence in each alignment profile was used as an input to a neural network, whose output was then fed into another neural net \cite{cuff2000application}. The output of this last neural network was the predicted state \cite{cuff2000application}, either \lstinline|H|, \lstinline|E|, or \lstinline|-| (this represents something that is neither \lstinline|H| nor \lstinline|E|). As the were four different alignment profiles used, this pair of neural nets was trained for each profile, and each of their outputs `votes' on a predicted state \cite{cuff2000application}. When all the votes were the same, (i.e there was a "jury agreement"), there was an extremely high chance the predicted state matched the actual state \cite{cuff2000application}.
+
+\subsection{Testing JPred4}
+JPred4 allows up to 200 FASTA amino-acid sequences to be loaded in one batch job. The testing dataset was modified to remove the protein secondary structure data, and only to take the first 200 sequences.
+
+Despite being an extremely large job, it finished extremely quickly, as JPred4 had encountered most of the sequences already and had cached the results. However, only 188 of the 200 sequences were successfully run, the remaining failed, due to an issue with the UniRef database used during the PSI-BLAST process.
+
+When the batch job was finished, a 4.7 GB tarball was created, containing a folder for each result. One of the HTML pages showing the results showed the protein secondary structure predictions, which were parsed out using Python.
+
+As the output of JPred4 had three classes: \lstinline|H|, \lstinline|E|, and \lstinline|-|, while the original dataset had four classes \lstinline|H|, \lstinline|E|, \lstinline|C|, and \lstinline|X|, the \lstinline|C| and \lstinline|X| classes were combined to make \lstinline|-|.
+
+As can be seen below, a 77.7\% accuracy was found, which is similar enough to the 82\% mentioned by \cite{doi:10.1093/nar/gkv332}.
+
+<<>>=
+loadJpred4Results("/home/alois/Downloads/spider/*/*.simple.html", testingFASTAs)
+@
+
+\section{Own Algorithm}
+The algorithm that I decided to implement was a multi-layer perceptron neural network, made using the Tensorflow package for Python. As an input for this neural network, I used a window-size of 17 amino-acids, i.e. 8 before, the current one, and 8 after. This is the same window-size as used in JPred4's first neural net \cite{cuff2000application} and is meant to be the optimal window size to use \cite{holley1989protein}. \cite{holley1989protein} and Professor Adam Pr\"ugel-Bennett recommend using an unrolled Boolean Matrix as the input. So as there were 22 different types of amino-acids, and 17 amino-acids in the window-size, the input layer was \(22 x 17\), with 1 being True and the rest being False.
+
+The cost function being used is a softmax cross-entropy function, which gets the probability of choosing each state as the output, while the cross-entropy measures how similar the predicted output and the actual output are \cite{sadowski2016notes}. In addition, to lessen the effects of over-fitting, a penalty was made for large weights \cite{sarle1996stopped}. The algorithm was also periodically validated \cite{sarle1996stopped}, with the weights and biases of the best validation being stored, so that if overfitting did occur, the neural net could be rolled back.
+
+The optimizer used was Adam optimizer, which is regarded by \cite{ruder2016overview} as one of the best optimizers. A high learning rate was given, as due to the exponential decay of the Adam optimizer, the high learning rate let it very quickly reduce the cost initially, but slow down when the cost was low. If it was too high, it tended to aggressively force the weights down, due to the weight penalty.
+
+Many different values for the number of neurons/hidden layers were tried. Extremely large hidden layers (2000 neurons in layer 1, 2000 neurons in layer 2) tended to overfit and performed worse than using a single hidden layer of 50 neurons. Interestingly, often there would have been no predictions for \lstinline|E|, which makes sense as it is the least likely to occur. However, \lstinline|H| was usually more accurately predicted than \lstinline|-|, despite it being less likely. This may be because all \lstinline|H|'s are alpha-helixes while \lstinline|-| are random. The accuracy was in the range of 45\% to 60\%, similar to \cite{holley1989protein} numbers.
+
+After doing this algorithm, I can see why JPred4 used PSI-BLAST on the input data, and used 4 different inputs and neural nets to classify, as increasing the complexity of the neural network didn't increase the accuracy, probably due to the lack of input data, which PSI-BLAST can make up for with databases of other protein sequences. Another powerful secondary protein sequence classifier, SPIDER2, manages to get an 82\% accuracy rate (the current limit) as well, by using a deep neural network\cite{heffernan2015improving}. Like JPred4, they also use multiple neural networks to get the final answer\cite{heffernan2015improving}. This performance of this neural network, roughly 55\%, isn't
+too useful, as a classifier that only ever output \lstinline|-| would get 42\%. It seems improving it would require chaining together some neural networks.
+
+\subsection{Results}
+
+<<>>=
+secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, [100], weightCost = 0.05, 
+                         learning_rate = 0.01)
+@
+
+\subsection{MLP Function Header}
+
+<<evaluate = False>>=
+def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50, 50],
+training_epochs = 20, batch_size = 100, learning_rate = 0.1,
+seperateValidationAndTest = True, validationPercentage = 0.2,
+weightCost = 0.05):
+"""Runs a Multi-layer Perceptron Neural Network.
+
+Trains with the trainingFASTAs data, and tests it with
+the testingFASTAs data.
+
+Code loosely based on the code found here:
+https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/multilayer_perceptron.py
+
+Args:
+trainingFASTAs: A list of SecondaryStructFASTA objects to train with
+testingFASTAs: A list of SecondaryStructFASTA objects to test with
+layerSizes: A list of the number of neurons wanted in each layer
+training_epochs: How long training should go on for
+batch_size: How many sequences will be trained each epoch
+learning_rate: The learning rate of the ADAM optimizer
+seperateValidationAndTest: if True, creates a validation from training 
+data, otherwise uses testing data
+validationPercentage: percent of batch_size that should be used
+weightCost: how much having large weights is punished
+"""
+@
+
+
+\begin{multicols}{2}
+
+\bibliographystyle{IEEEtran}
+\bibliography{bibliography}
+
+\end{multicols}
+
+\end{document}
