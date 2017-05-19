@@ -9,6 +9,9 @@ class SecondaryStructFASTA(object):
 	"""Class used to store a FASTA object that has
 	secondary protein structure information.
 	
+	The secondary protein structure has "H" for alpha-helixes, "E" for beta-sheets,
+	and "-" for others.
+	
 	Attributes:
 		header - Contains the Header of the FASTA file
 		sequence - Contains the sequence in the FASTA file
@@ -21,10 +24,10 @@ class SecondaryStructFASTA(object):
 		"""Constructor, fileName is a string showing the fileName to load """
 		self.header = header
 		self.sequence = sequence
-		self.secondaryStruct = secondaryStruct.replace("X", "C") #removes "X"
+		self.secondaryStruct = secondaryStruct.replace("X", "-").replace("C", "-") #removes "X"
 	
 	aminoAcids = "ARNDCQEGHILKMFPSTWYVBZ"
-	secondaryStructKey = "HEC"
+	secondaryStructKey = "HE-"
 	 
 	def createInputOutput(self, windowsSize = 17):
 	
@@ -110,27 +113,39 @@ def loadJpred4Results(filename, actualData):
 	
 	print("Number of sequences loaded: " + str(len(sequences)))
 	
-	structKey = "HEC"
+	structKey = "HE-"
 	wrongPredictions = [0] * len(structKey)
 	correctPredictions = [0] * len(structKey)
+	
+	predictions = ""
+	actuals = ""
 	
 	for sequence in sequences:
 		# finds the SecondaryStructFASTA object that has the same sequence
 		actualSequence, = [seq for seq in actualData if seq.sequence == sequence.sequence]
-		total += len(sequence.secondaryStruct)
-		correct += sum(a==b for a,b in zip(sequence.secondaryStruct, actualSequence.secondaryStruct))
 		
-		for predict, actual in zip(sequence.secondaryStruct, actualSequence.secondaryStruct):
-			if( predict == actual):
-				correctPredictions[structKey.index(predict)]+=1
-			else:
-				wrongPredictions[structKey.index(predict)]+=1
+		actuals += actualSequence.secondaryStruct
+		predictions += sequence.secondaryStruct
 			
-	printReport(correctPredictions, wrongPredictions, structKey)
+	printReport(predictions, actuals)
 
-def printReport(correctPredictions, wrongPredictions, structKey):
+def printReport(predictions, actuals):
+	"""Creates a report of the secondary structure predictions
+	
+	Args:
+		predictions: A string with all the predictions
+		actuals: A string of all the actual values
 	"""
-	"""
+	structKey = "HE-"
+	wrongPredictions = [0] * len(structKey)
+	correctPredictions = [0] * len(structKey)
+	
+	for predict, actual in zip(predictions, actuals):
+		if( predict == actual):
+			correctPredictions[structKey.index(predict)]+=1
+		else:
+			wrongPredictions[structKey.index(predict)]+=1
+				
 	total = sum(correctPredictions) + sum(wrongPredictions)
 	print("Total Predictions: " + str(total))
 	print("Total Percent Correct = " + str(sum(correctPredictions)/total)
@@ -190,7 +205,7 @@ def loadSecondaryStructFASTAs(fileName, limit = 2000, seqLengthLimit = 2000):
 				return secondaryStructFASTAs
 
 def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50, 50],
-           training_epochs = 100, batch_size = 100, learning_rate = 0.1,
+           training_epochs = 20, batch_size = 100, learning_rate = 0.1,
            seperateValidationAndTest = True, validationPercentage = 0.2,
            weightCost = 0.05):
 	"""Runs a Multi-layer Perceptron Neural Network.
@@ -281,6 +296,12 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 		correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
 		# Calculate accuracy
 		accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+		
+		best_weights = []
+		best_biases = []
+		for i in range(len(weights)):
+			best_weights.append(tf.Variable(weights[i].initialized_value()))
+			best_biases.append(tf.Variable(biases[i].initialized_value()))
 
 		# Training cycle
 		print("MLP Neural Net with Neurons: " + str(n_hidden) 
@@ -288,7 +309,7 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 		print("Started training at: " + str(datetime.now()))
 		print("Press CTRL+C to stop early")
 		try:
-			prev_valid_cost = 0.0
+			best_validation = 0.0
 			for epoch in range(training_epochs):
 				avg_cost = 0.
 				# Loop over all batches
@@ -316,8 +337,14 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 					print("      correct validations =", \
 						  "{:.9f}".format(100*valid_avg_percentage) + "%")
 						  
-				if(prev_valid_cost >= valid_avg_percentage):
+				if(best_validation >= valid_avg_percentage):
 					print("Overfitting so maybe you should stop")
+				else:
+					best_validation = valid_avg_percentage
+					# backup weights and biases
+					for i in range(len(weights)):
+						sess.run(best_weights[i].assign(weights[i]))
+						sess.run(best_biases[i].assign(biases[i]))
 					
 				prev_valid_cost = valid_avg_percentage
 				
@@ -325,20 +352,45 @@ def secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, layerSizes = [50, 50
 			pass #if ctrl+c is pressed stop early
 			 
 		print("Optimization Finished!")
+		
+		# load best weights and biases
+		print("Best Validation Percentage was: " + str(best_validation) + "%")
+		for i in range(len(weights)):
+			sess.run(weights[i].assign(best_weights[i]))
+			sess.run(biases[i].assign(best_biases[i]))
 	
+		# creates the inputs to test, and the expected output
 		test_x, test_y =  testingFASTAs[0].createInputOutput()
-		testSize = 500
+		actuals = testingFASTAs[0].secondaryStruct
+		testSize = 10
 		for i in range(1, testSize):
+			print("Lengths: " + str(len(test_x)) + " " + str(len(actuals)))
 			test_x_i, test_y_i = testingFASTAs[i].createInputOutput()
 			test_x = np.concatenate( (test_x, test_x_i) )
 			test_y = np.concatenate( (test_y, test_y_i) )
+			
+			actuals += testingFASTAs[i].secondaryStruct
+			
 		test_x = np.array(test_x)
-		test_y = np.array(test_y)
-	
-		print("Accuracy:", accuracy.eval({x: test_x, y: test_y}))
+		
+		secondaryStructKey = "HE-"
+		
+		# converts the Bool array output to a single int
+		prediction=tf.argmax(pred,1)
+		
+		# creates the output
+		test_y_predicted = prediction.eval(feed_dict={x: test_x})
+		
+		# converts the output to a string format
+		predictions = ""
+		for predict in test_y_predicted:
+			predictions += secondaryStructKey[predict]
+			
+		printReport(predictions, actuals)
+		
 			
 testingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_test1199.txt", 500)
 loadJpred4Results("/home/alois/Downloads/spider/*/*.simple.html", testingFASTAs)
 
 trainingFASTAs = loadSecondaryStructFASTAs("data/seq+ss_train.txt", 1000)
-secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, [500, 1000])
+secondaryStructSolverMLP(trainingFASTAs, testingFASTAs, [50, 50], weightCost = 0.05)
